@@ -1,0 +1,23 @@
+{
+  "name": "demo",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shailytiwari/Demo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shailytiwari/Demo/issues"
+  },
+  "homepage": "https://github.com/shailytiwari/Demo#readme",
+  "description": ""
+}
