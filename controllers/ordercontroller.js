@@ -1,58 +1,93 @@
-// Fake in-memory data (for teaching)
-let orders = [
-  { id: 1, userId: 1, items: [{ productId: 1, quantity: 2 }], total: 2000, status: 'pending' },
-  { id: 2, userId: 2, items: [{ productId: 2, quantity: 1 }], total: 500, status: 'completed' }
-];
+const Order = require('../models/Order');
 
-// GET /orders
-exports.getAllOrders = (req, res) => {
-  res.json(orders);
-};
-
-// GET /orders/:id
-exports.getOrderById = (req, res) => {
-  const id = parseInt(req.params.id);
-  const order = orders.find(o => o.id === id);
-
-  if (!order) {
-    return res.status(404).json({ message: 'Order not found' });
+// GET /orders - Get all orders
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().populate('userId').populate('items.productId');
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.json(order);
 };
 
-// POST /orders
-exports.createOrder = (req, res) => {
-  const newOrder = {
-    id: orders.length + 1,
-    userId: req.body.userId,
-    items: req.body.items,
-    total: req.body.total,
-    status: req.body.status || 'pending'
-  };
+// GET /orders/:id - Get order by ID
+exports.getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('userId').populate('items.productId');
 
-  orders.push(newOrder);
-  res.status(201).json(newOrder);
-};
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
 
-// PUT /orders/:id
-exports.updateOrder = (req, res) => {
-  const id = parseInt(req.params.id);
-  const order = orders.find(o => o.id === id);
-
-  if (!order) {
-    return res.status(404).json({ message: 'Order not found' });
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  order.items = req.body.items || order.items;
-  order.total = req.body.total || order.total;
-  order.status = req.body.status || order.status;
-  res.json(order);
 };
 
-// DELETE /orders/:id
-exports.deleteOrder = (req, res) => {
-  const id = parseInt(req.params.id);
-  orders = orders.filter(o => o.id !== id);
-  res.json({ message: 'Order deleted' });
+// POST /orders - Create a new order
+exports.createOrder = async (req, res) => {
+  try {
+    // Calculate total if items are provided
+    const total = req.body.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    const newOrder = new Order({
+      userId: req.body.userId,
+      items: req.body.items,
+      total: total,
+      status: req.body.status || 'pending',
+      shippingAddress: req.body.shippingAddress
+    });
+
+    const savedOrder = await newOrder.save();
+    await savedOrder.populate('userId').populate('items.productId');
+    res.status(201).json(savedOrder);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /orders/:id - Update an order
+exports.updateOrder = async (req, res) => {
+  try {
+    // Calculate total if items are provided
+    let total = req.body.total;
+    if (req.body.items) {
+      total = req.body.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        items: req.body.items,
+        total: total,
+        status: req.body.status,
+        shippingAddress: req.body.shippingAddress
+      },
+      { new: true, runValidators: true }
+    ).populate('userId').populate('items.productId');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE /orders/:id - Delete an order
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json({ message: 'Order deleted', order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

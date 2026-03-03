@@ -1,56 +1,82 @@
-// Fake in-memory data (for teaching)
-let users = [
-  { id: 1, name: 'John', email: 'john@example.com' },
-  { id: 2, name: 'Jane', email: 'jane@example.com' },
-  { id: 3, name: 'Bob', email: 'bob@example.com' }
-];
+const User = require('../models/User');
 
-// GET /users
-exports.getAllUsers = (req, res) => {
-  res.json(users);
-};
-
-// GET /users/:id
-exports.getUserById = (req, res) => {
-  const id = parseInt(req.params.id);
-  const user = users.find(u => u.id === id);
-
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+// GET /users - Get all users
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.json(user);
 };
 
-// POST /users
-exports.createUser = (req, res) => {
-  const newUser = {
-    id: users.length + 1,
-    name: req.body.name,
-    email: req.body.email
-  };
+// GET /users/:id - Get user by ID
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
 
-  users.push(newUser);
-  res.status(201).json(newUser);
-};
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-// PUT /users/:id
-exports.updateUser = (req, res) => {
-  const id = parseInt(req.params.id);
-  const user = users.find(u => u.id === id);
-
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  user.name = req.body.name || user.name;
-  user.email = req.body.email || user.email;
-  res.json(user);
 };
 
-// DELETE /users/:id
-exports.deleteUser = (req, res) => {
-  const id = parseInt(req.params.id);
-  users = users.filter(u => u.id !== id);
-  res.json({ message: 'User deleted' });
+// POST /users - Create a new user
+exports.createUser = async (req, res) => {
+  try {
+    const newUser = new User({
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address
+    });
+
+    const savedUser = await newUser.save();
+    res.status(201).json(savedUser);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /users/:id - Update a user
+exports.updateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        address: req.body.address
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE /users/:id - Delete a user
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'User deleted', user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

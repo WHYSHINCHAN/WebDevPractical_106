@@ -1,56 +1,87 @@
-// Fake in-memory data (for teaching)
-let carts = [
-  { id: 1, userId: 1, items: [{ productId: 1, quantity: 2 }], total: 2000 },
-  { id: 2, userId: 2, items: [{ productId: 2, quantity: 1 }], total: 500 }
-];
+const Cart = require('../models/Cart');
+const Product = require('../models/Product');
 
-// GET /cart
-exports.getAllCarts = (req, res) => {
-  res.json(carts);
-};
-
-// GET /cart/:id
-exports.getCartById = (req, res) => {
-  const id = parseInt(req.params.id);
-  const cart = carts.find(c => c.id === id);
-
-  if (!cart) {
-    return res.status(404).json({ message: 'Cart not found' });
+// GET /cart - Get all carts
+exports.getAllCarts = async (req, res) => {
+  try {
+    const carts = await Cart.find().populate('userId').populate('items.productId');
+    res.json(carts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.json(cart);
 };
 
-// POST /cart
-exports.createCart = (req, res) => {
-  const newCart = {
-    id: carts.length + 1,
-    userId: req.body.userId,
-    items: req.body.items || [],
-    total: req.body.total || 0
-  };
+// GET /cart/:id - Get cart by ID
+exports.getCartById = async (req, res) => {
+  try {
+    const cart = await Cart.findById(req.params.id).populate('userId').populate('items.productId');
 
-  carts.push(newCart);
-  res.status(201).json(newCart);
-};
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
 
-// PUT /cart/:id
-exports.updateCart = (req, res) => {
-  const id = parseInt(req.params.id);
-  const cart = carts.find(c => c.id === id);
-
-  if (!cart) {
-    return res.status(404).json({ message: 'Cart not found' });
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  cart.items = req.body.items || cart.items;
-  cart.total = req.body.total || cart.total;
-  res.json(cart);
 };
 
-// DELETE /cart/:id
-exports.deleteCart = (req, res) => {
-  const id = parseInt(req.params.id);
-  carts = carts.filter(c => c.id !== id);
-  res.json({ message: 'Cart deleted' });
+// POST /cart - Create a new cart
+exports.createCart = async (req, res) => {
+  try {
+    const newCart = new Cart({
+      userId: req.body.userId,
+      items: req.body.items || [],
+      total: req.body.total || 0
+    });
+
+    const savedCart = await newCart.save();
+    await savedCart.populate('userId').populate('items.productId');
+    res.status(201).json(savedCart);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /cart/:id - Update a cart
+exports.updateCart = async (req, res) => {
+  try {
+    // Calculate total if items are provided
+    let total = req.body.total;
+    if (req.body.items) {
+      total = req.body.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+
+    const cart = await Cart.findByIdAndUpdate(
+      req.params.id,
+      {
+        items: req.body.items,
+        total: total
+      },
+      { new: true, runValidators: true }
+    ).populate('userId').populate('items.productId');
+
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE /cart/:id - Delete a cart
+exports.deleteCart = async (req, res) => {
+  try {
+    const cart = await Cart.findByIdAndDelete(req.params.id);
+
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+
+    res.json({ message: 'Cart deleted', cart });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
